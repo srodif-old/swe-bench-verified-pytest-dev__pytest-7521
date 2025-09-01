@@ -514,6 +514,25 @@ class TestCaptureFixture:
         )
         reprec.assertoutcome(passed=1)
 
+    def test_capfd_carriage_return_preservation(self, testdir):
+        # Test that capfd preserves carriage return characters (issue #7521)
+        reprec = testdir.inline_runsource(
+            """\
+            def test_carriage_return_capfd(capfd):
+                import sys
+                print("DOS line", end="\\r")
+                out, err = capfd.readouterr()
+                assert out == "DOS line\\r"
+                
+            def test_carriage_return_capsys(capsys):
+                import sys
+                print("DOS line", end="\\r")
+                out, err = capsys.readouterr()
+                assert out == "DOS line\\r"
+            """
+        )
+        reprec.assertoutcome(passed=2)
+
     def test_capfdbinary(self, testdir):
         reprec = testdir.inline_runsource(
             """\
@@ -1150,6 +1169,17 @@ class TestStdCaptureFD(TestStdCapture):
             out, err = cap.readouterr()
         assert out == "123"
         assert err == "abc"
+
+    def test_carriage_return_preservation(self):
+        # Test that carriage return characters are preserved in output
+        with self.getcapture() as cap:
+            sys.stdout.write("line1\rline2")
+            sys.stdout.flush()
+            os.write(1, b"\ronly_cr_ending")
+            out, err = cap.readouterr()
+        
+        # Both \r characters should be preserved
+        assert out == "line1\rline2\ronly_cr_ending", f"Expected carriage returns preserved, got {repr(out)}"
 
     def test_many(self, capfd):
         with lsof_check():
